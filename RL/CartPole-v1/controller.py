@@ -11,8 +11,6 @@ LIMITS = list(zip(env.observation_space.low, env.observation_space.high))
 LIMITS[1] = [-0.5, 0.5]
 LIMITS[3] = [-math.radians(50), math.radians(50)]
 
-plot = []
-
 
 class State:
     def __init__(self, features):
@@ -101,13 +99,6 @@ class Controller:
         else:
             self.q_table = QTable.load(q_table_path)
 
-    @staticmethod
-    def get_explore_rate(t):
-        return max(0.01, min(1, 1.0 - math.log10((t+1)/25)))
-    @staticmethod
-    def get_learning_rate(t):
-        return max(0.1, min(0.5, 1.0 - math.log10((t+1)/25)))
-
     def update_q(self, new_state, old_state, action, reward, it):
 
         #learning_rate = Controller.get_learning_rate(it)
@@ -125,8 +116,7 @@ class Controller:
 
     def take_action(self, state, it):
             exp_rate = 0.99**it
-            #exp_rate = Controller.get_explore_rate(it)
-            #plot.append(exp_rate)
+
             if random.random() < exp_rate:
                 action = env.action_space.sample()
             else:
@@ -153,34 +143,27 @@ def main():
     
     num_streaks = 0
     max_streaks = -1
-
-    episode = 0
-    while(True):
+    for episode in range(300):
         
         old_state = State(env.reset()).discretize_features()
         done = False
-        it = 0
-        #for it in range(494):
-        while not done:
-            it += 1 
+
+        for it in range(250):
+
             #env.render()
 
             action = controller.take_action(old_state, episode)
 
             observation, reward, done, _ = env.step(action)
-
             new_state = State(observation).discretize_features()
 
-
-            #print("to aqui")
             controller.update_q(new_state, old_state, action, reward, episode)
-            #print("to aqui2")
-            #print(it)
+
             old_state = new_state
 
             if done:
                 print("Finished {} with {} steps.".format(episode, it))
-                if (it >= 494):
+                if (it >= 199):
                     num_streaks += 1
                     if num_streaks > max_streaks:
                         max_streaks = num_streaks
@@ -189,10 +172,8 @@ def main():
                 break
         
     
-        if max_streaks > 100:
+        if max_streaks > 50:
             break
-
-        episode += 1
 
 
     print(controller.q_table)
@@ -214,8 +195,8 @@ def main():
         points += 1
     print(points)
 
-    #plt.plot(plot)
-    #plt.show()
+    plt.plot(plot)
+    plt.show()
 
 
 

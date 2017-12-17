@@ -11,8 +11,6 @@ LIMITS = list(zip(env.observation_space.low, env.observation_space.high))
 LIMITS[1] = [-0.5, 0.5]
 LIMITS[3] = [-math.radians(50), math.radians(50)]
 
-plot = []
-
 
 class State:
     def __init__(self, features):
@@ -119,7 +117,6 @@ class Controller:
     def take_action(self, state, it):
             exp_rate = 0.99**it
 
-            plot.append(exp_rate)
             if random.random() < exp_rate:
                 action = env.action_space.sample()
             else:
