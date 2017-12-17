@@ -4,7 +4,7 @@ import config as Config
 
 #TODO: These guys should come from the command line.
 ANIMATE = True
-MAX_EPISODE = 1000
+MAX_EPISODE = 5000
 
 def main():
 
