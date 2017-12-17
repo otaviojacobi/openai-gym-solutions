@@ -3,12 +3,16 @@ import random
 import math
 from itertools import product
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 env = gym.make('CartPole-v0')
 
-ANGLE_LIMITS = (math.radians(1), math.radians(3))
-SPEED_LIMITS =  (1.5, 2)
+LIMITS = list(zip(env.observation_space.low, env.observation_space.high))
+LIMITS[1] = [-0.5, 0.5]
+LIMITS[3] = [-math.radians(50), math.radians(50)]
+
+plot = []
+
 
 class State:
     def __init__(self, features):
@@ -16,7 +20,7 @@ class State:
 
     @staticmethod
     def discretization_levels():
-        return (1,1,5,3)
+        return (1,1,6,3)
 
 
     @staticmethod
@@ -28,29 +32,23 @@ class State:
 
 
     def discretize_features(self):
-
-        if self.features[2] <= ANGLE_LIMITS[0] and self.features[2] >= -ANGLE_LIMITS[0]:
-            angle = 0
-        elif self.features[2] > ANGLE_LIMITS[0] and self.features[2] <= ANGLE_LIMITS[1]:
-            angle = 1
-        elif self.features[2] < -ANGLE_LIMITS[0] and self.features[2] >= -ANGLE_LIMITS[1]:
-            angle = 2
-        elif self.features[2] > ANGLE_LIMITS[1]:
-            angle = 3
-        elif self.features[2] < -ANGLE_LIMITS[1]:
-            angle = 4
-        else:
-            print(math.degrees(self.features[2]))
-
         
-        if self.features[2] <= SPEED_LIMITS[0] and self.features[2] >= -SPEED_LIMITS[0]:
-            vel = 0
-        elif self.features[2] > SPEED_LIMITS[0]:
-            vel = 1
-        elif self.features[2] < -SPEED_LIMITS[0]:
-            vel = 2
+        discretized = []
+        levels = State.discretization_levels()
 
-        return (0, 0, angle, vel)
+        for idx in range(len(self.features)):
+            if self.features[idx] <= LIMITS[idx][0]:
+                discretized.append(0)
+            elif self.features[idx] >= LIMITS[idx][1]:
+                discretized.append(levels[idx]-1)     
+            else:
+                bound_width = LIMITS[idx][1] - LIMITS[idx][0]
+                offset = (levels[idx]-1)*LIMITS[idx][0]/bound_width
+                scaling = (levels[idx]-1)/bound_width
+                bucket_index = int(round(scaling*self.features[idx] - offset))
+                discretized.append(bucket_index)
+
+        return tuple(discretized)
 
     def __str__(self):
         disc = self.discretize_features()
@@ -103,9 +101,11 @@ class Controller:
         else:
             self.q_table = QTable.load(q_table_path)
 
-    def update_q(self, new_state, old_state, action, reward):
+    def update_q(self, new_state, old_state, action, reward, it):
 
-        learning_rate = 0.1
+        #learning_rate = Controller.get_learning_rate(it)
+        learning_rate = 0.2
+        #print(learning_rate)
         discount = 0.99
 
         old_value = self.q_table.get_q_value(old_state, action)
@@ -113,23 +113,19 @@ class Controller:
 
         new_q_value = ((1-learning_rate)*old_value) + learning_rate * (reward + discount*max_next_state)
 
-        #print(new_q_value)
 
         self.q_table.set_q_value(old_state, action, new_q_value)
 
     def take_action(self, state, it):
-        #print(discretized)
-        #print(self.q_table.q_table[discretized][0])
-        if self.q_table.get_q_value(state, 0) >= self.q_table.get_q_value(state, 1):
-            if random.random() > 0.9:
-                return 0
+            exp_rate = 0.99**it
+
+            plot.append(exp_rate)
+            if random.random() < exp_rate:
+                action = env.action_space.sample()
             else:
-                return 1
-        else:
-            if random.random() > 0.9:
-                return 0
-            else:
-                return 1
+                action = np.argmax(self.q_table.get_q_value(state))
+            return action
+        
 
     def take_best_action(self, state):
         if self.q_table.get_q_value(state, 0) >= self.q_table.get_q_value(state, 1):
@@ -150,29 +146,27 @@ def main():
     
     num_streaks = 0
     max_streaks = -1
-    for episode in range(10000):
+    for episode in range(300):
         
         old_state = State(env.reset()).discretize_features()
-        
+        done = False
+
         for it in range(250):
 
             #env.render()
 
-            action = controller.take_action(old_state, it)
+            action = controller.take_action(old_state, episode)
 
             observation, reward, done, _ = env.step(action)
             new_state = State(observation).discretize_features()
 
-            if(reward > 1):
-                print(reward)
-
-            controller.update_q(new_state, old_state, action, reward)
+            controller.update_q(new_state, old_state, action, reward, episode)
 
             old_state = new_state
 
             if done:
-                if (it >= 10):
-                    #print("what")
+                print("Finished {} with {} steps.".format(episode, it))
+                if (it >= 199):
                     num_streaks += 1
                     if num_streaks > max_streaks:
                         max_streaks = num_streaks
@@ -180,24 +174,32 @@ def main():
                     num_streaks = 0
                 break
         
-        if num_streaks > 50:
+    
+        if max_streaks > 50:
             break
 
 
     print(controller.q_table)
     print(max_streaks)
 
-    env.reset()
-    done = False
-
     old_state = State(env.reset()).discretize_features()
 
+    done = False
+
+    points = 0
     while not done:
+        if points >= 500:
+            break
         env.render()
         action = controller.take_best_action(old_state)
-        observation, reward, done, _ = env.step(action)
+        observation, reward, _, _ = env.step(action)
         new_state = State(observation).discretize_features()
         old_state = new_state
+        points += 1
+    print(points)
+
+    plt.plot(plot)
+    plt.show()
 
 
 
