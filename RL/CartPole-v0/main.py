@@ -4,7 +4,7 @@ import config as Config
 
 #TODO: These guys should come from the command line.
 ANIMATE = True
-MAX_EPISODE = 1000
+MAX_EPISODE = 5000
 
 def main():
 
@@ -44,25 +44,19 @@ def main():
             break
 
         episode += 1
-
+    #print("Solved in {} episodes".format(episode))
     if ANIMATE:
         old_state = State(env.reset()).discretize_features()
         done = False
         points = 0
         while not done:
-            if points >= 500:
-                break
             env.render()
             action = controller.take_best_action(old_state)
-            observation, reward, _, _ = env.step(action)
+            observation, reward, done, _ = env.step(action)
             new_state = State(observation).discretize_features()
             old_state = new_state
             points += 1
-        print(points)
-
-    #plt.plot(plot)
-    #plt.show()
-
+        #print(points)
 
 
 if __name__ == '__main__':
