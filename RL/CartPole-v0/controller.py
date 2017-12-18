@@ -3,7 +3,6 @@ import random
 import math
 from itertools import product
 import numpy as np
-import matplotlib.pyplot as plt
 from typing import Tuple, List, Dict, Union
 
 #TODO: Remove this from here and find a better way
